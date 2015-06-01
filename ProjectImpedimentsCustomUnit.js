@@ -9,28 +9,42 @@ tau
     .addMashup(function(_, $, globalConfigurator, types, sizes) {
         'use strict';
 
-        var rels = ['Generals'];
+        var rels = {
+            'total': ['Generals'],
+            'assignables': ['Features', 'Epics', 'UserStories', 'Tasks', 'Bugs', 'TestPlans', 'Requests', 'TestPlanRuns']
+        };
 
-        var model = rels.map(function(v) {
+        var modelTotal = rels.total.map(function(v) {
             return 'impediments' + v + ':' + v +
-                '.Where(MasterRelations.Count(RelationType.Name=="Blocker")>0).Select(MasterRelations.Count(RelationType.Name=="Blocker"))';
-        }).join(', ');
+                '.Where(SlaveRelations.Count(RelationType.Name=="Blocker")>0).Select(SlaveRelations.Count(RelationType.Name=="Blocker"))';
+        });
 
-        var template = rels.map(function(v) {
+        var modelAssignables = rels.assignables.map(function(v) {
+            return 'impediments' + v + ':' + v +
+                '.Where(EntityState.isFinal == false and SlaveRelations.Count(RelationType.Name=="Blocker")>0).Select(SlaveRelations.Count(RelationType.Name=="Blocker"))';
+        });
+
+        var model = modelTotal.concat(modelAssignables).join(', ');
+
+        var templateTotal = rels.total.map(function(v) {
             return '_.reduce(this.data.impediments' + v + ', function(res, v) {return res + v;}, 0)';
         }).join(' + ');
 
-        template = '<%= ' + template + ' %>';
+        var templateOpen = rels.assignables.map(function(v) {
+            return '_.reduce(this.data.impediments' + v + ', function(res, v) {return res + v;}, 0)';
+        }).join(' + ');
+
+        var template;
 
         template = [
-            '<div class="tau-board-unit__value tau-entity-icon tau-entity-icon--impediment">',
-                template,
-            '</div>'
+            '<span class="tau-entity-icon tau-entity-icon--impediment" title="Impediment">I</span>',
+            '<div class="tau-board-unit__value-open"><%= ' + templateOpen + ' %></div>/',
+            '<div class="tau-board-unit__value-total"><%= ' + templateTotal + ' %></div>'
         ];
 
         var units = [{
             id: 'project_impediments',
-            name: 'Impediments',
+            name: 'Open/total impediments',
             classId: 'tau-board-unit_type_impediments-counter',
             template: template,
             types: [
@@ -38,6 +52,7 @@ tau
             ],
             sizes: [sizes.XS, sizes.S, sizes.M, sizes.L, sizes.XL, sizes.LIST],
             sampleData: {
+                impedimentsTasks: [0, 1],
                 impedimentsGenerals: [1, 2]
             },
             model: model
